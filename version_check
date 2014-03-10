@@ -65,6 +65,10 @@ def main():
         supports_check_mode = True
     )
     
+    if module.check_mode:
+        # Check if any changes would be made by don't actually make those changes
+        module.exit_json(changed=false)
+        
     command = module.params.get('command')
     minimum = module.params.get('minimum')
     maximum = module.params.get('maximum')
