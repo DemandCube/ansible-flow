@@ -1,0 +1,161 @@
+#!/usr/bin/python
+
+DOCUMENTATION = '''
+---
+module: exec_check
+author: Steve Morin & Richard Duarte
+version_added: "1.4"
+short_description: Checks if version information is correct
+requirements: [ ]
+description:
+     - Runs command specified, and looks for regex "(\d+\.)+\d+" and determines if it meets minimum version requirements
+options:
+  command - the command to run in order to extract the version
+  minimum - the minimum version to accept, fails step if min version is exceeded
+  maximum - the maximum version to accept, fails step if max version is exceeded
+  regex - the regex used to extract version string from the output of command
+    
+notes:
+    -  Module should make things easier to check file versions
+'''
+
+EXAMPLES = '''
+# Run the command if the specified file does not exist
+- exec_check: command=git --version
+
+- name: Test version_check, simple case
+  version_check: command="python --version"
+
+- name: Test version_check, check minimum version
+  version_check: command="python --version" minimum="1.8"
+
+- name: Test version_check, check maximum version
+  version_check: command="python --version" maximum="2.9"
+
+- name: Test version_check, check minimum and maximum version
+  version_check: command="python --version" minimum="1.8" maximum="2.9"
+  register: ver
+
+# Now you can use 
+#  when: ver.maxVer != true
+# or
+#  when: ver.minVer != true
+# or
+#  when: ver.version == 1.7
+# or
+#  when: ver.version is defined
+
+'''
+
+
+
+from ansible.module_utils.basic import *
+from re import search
+import subprocess
+from distutils.version import LooseVersion, StrictVersion
+
+def main():
+    module = AnsibleModule(
+        argument_spec = dict(
+            command = dict(required=True, type='str'),
+            minimum = dict(required=False, default=None, type='str'),
+            maximum = dict(required=False, default=None, type='str'),
+            regex   = dict(required=False, default=r"(\d+\.)+\d+", type='str'),
+        ),
+        supports_check_mode = True
+    )
+    
+    command = module.params.get('command')
+    minimum = module.params.get('minimum')
+    maximum = module.params.get('maximum')
+    regex = module.params.get('regex')
+    
+    try:
+        p = subprocess.Popen(command.split(), stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        versionOut,versionError = p.communicate()
+        returnCode= p.returncode
+        versionOut = str(versionOut)+str(versionError)
+    except:
+        module.fail_json(msg="Error running version command : "+command,
+                        changed=False,
+                        installed=False,
+                        minVer=False,
+                        maxVer=False,)
+    
+    #Find all instances of something that could be the version number in the output
+    installedVersion = search(r'(\d+\.)+\d+',versionOut).group(0)
+    
+    
+    
+    if not minimum and not maximum:
+        module.exit_json(
+            changed=False,
+            installed=True,
+            stdout=versionOut,
+            stderr=versionError,
+            version=installedVersion,
+        )
+    
+    if minimum and maximum:
+        if LooseVersion(str(installedVersion)) >= LooseVersion(minimum) and LooseVersion(str(installedVersion)) <= LooseVersion(maximum):
+            module.exit_json(
+                changed=False,
+                installed=True,
+                stdout=versionOut,
+                stderr=versionError,
+                version=installedVersion,
+                minVer=True,
+                maxVer=True
+            )
+        else:
+            module.fail_json(msg="Version was insufficient.\nVersion: "+installedVersion+"\nRequired version >="+minimum+" and <= "+maximum,
+                             changed=False,
+                             installed=True,
+                            stdout=versionOut,
+                            stderr=versionError,
+                            version=installedVersion,
+                            minVer=True,
+                            maxVer=True)
+    if minimum:
+        if LooseVersion(str(installedVersion)) >= LooseVersion(minimum):
+            module.exit_json(
+                changed=False,
+                installed=True,
+                stdout=versionOut,
+                stderr=versionError,
+                version=installedVersion,
+                minVer=True,
+            )
+        else:
+            module.fail_json(msg="Version was insufficient.\nVersion: "+installedVersion+"\nRequired version >="+minimum,
+                            changed=False,
+                            installed=True,
+                            stdout=versionOut,
+                            stderr=versionError,
+                            version=installedVersion,
+                            minVer=False)
+    if maximum:
+        if LooseVersion(str(installedVersion)) <= LooseVersion(maximum):
+            module.exit_json(
+                changed=False,
+                installed=True,
+                stdout=versionOut,
+                stderr=versionError,
+                version=installedVersion,
+                maxVer=True
+            )
+        else:
+            module.fail_json(msg="Version was insufficient.\nVersion: "+installedVersion+"\nRequired version <= "+maximum,
+                            changed=False,
+                            installed=True,
+                            stdout=versionOut,
+                            stderr=versionError,
+                            version=installedVersion,
+                            maxVer=False)
+    
+    
+    
+    module.fail_json(msg="How did we get here?")
+
+
+main()
