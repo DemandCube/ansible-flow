@@ -18,7 +18,7 @@ What if I want to just see if a module is installed?
   ignore_errors: yes
   register: installed
   
-- name: nano
+- name: python install
   yum: name='python' state=installed
   sudo: yes
   when: installed.installed != true
