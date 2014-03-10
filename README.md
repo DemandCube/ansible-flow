@@ -1,12 +1,13 @@
-ansible-flow
+EXEC_CHECK
 ============
 
-
-###EXEC_CHECK
 ##INSTALLATION
 cd path/to/where/your/playbooks/are
+
 mkdir library
+
 cd library
+
 git clone https://github.com/DemandCube/ansible-flow.git
 
 
@@ -18,7 +19,7 @@ What if I want to just see if a module is installed?
   ignore_errors: yes
   register: installed
   
-- name: nano
+- name: python install
   yum: name='python' state=installed
   sudo: yes
   when: installed.installed != true
@@ -26,7 +27,7 @@ What if I want to just see if a module is installed?
 
 What if I want to make sure a minimum version is met
 ```
-- name: test if python is installed and minimum version is met
+- name: test if python is installed and minimum version is 3.0
   version_check: command="python --version" minimum="3.0"
   ignore_errors: yes
   register: installed
@@ -40,7 +41,7 @@ What if I want to make sure a minimum version is met
 
 What if I want to make sure a maximum version is met
 ```
-- name: test if python is installed and minimum version is met
+- name: test if python is installed and minimum version is 2.9
   version_check: command="python --version" maximum="2.9"
   ignore_errors: yes
   register: installed
@@ -54,7 +55,7 @@ What if I want to make sure a maximum version is met
 
 What if I want to make sure a maximum and minimum version is met
 ```
-- name: test if python is installed and minimum version is met
+- name: test if python is installed and version is between 2.7 and 2.9
   version_check: command="python --version" maximum="2.9" minimum="2.7"
   ignore_errors: yes
   register: installed
@@ -67,8 +68,8 @@ What if I want to make sure a maximum and minimum version is met
 
 What if I want to use a custom regex to parse the version
 ```
-- name: test if python is installed and minimum version is met and use a custom regex
-  version_check: command="python --version" maximum="2.9" minimum="2.7" regex="\d.\d.\d.\d"
+- name: test if python is installed and use a custom regex
+  version_check: command="python --version" regex="\d.\d.\d.\d"
   ignore_errors: yes
   register: installed
   
@@ -80,7 +81,7 @@ What if I want to use a custom regex to parse the version
 
 What if I just want to compare the version as a string
 ```
-- name: test if python is installed and minimum version is met and use a custom regex
+- name: test if python is installed and make sure version is exactly 2.7.9
   version_check: command="python --version"
   ignore_errors: yes
   register: installed
