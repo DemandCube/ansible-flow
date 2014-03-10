@@ -1,8 +1,6 @@
-ansible-flow
+EXEC_CHECK
 ============
 
-
-###EXEC_CHECK
 ##INSTALLATION
 cd path/to/where/your/playbooks/are
 mkdir library
