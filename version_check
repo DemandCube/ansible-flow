@@ -119,7 +119,7 @@ def main():
     module = AnsibleModule(
         argument_spec = dict(
             command = dict(required=True, type='str'),
-            installif = dict(required=False, default=None, type='str'),
+            installif = dict(required=False, default=None, type='str', choices=["lessthan", "lessthanequal", "equal", "notequal", "greaterthan", "greaterthanequal"]),
             version  = dict(required=False, default=None, type='str'),
             regex   = dict(required=False, default=r'(\d+\.)+\d+', type='str'),
             line    = dict(required=False, default=0, type='int')
@@ -141,9 +141,6 @@ def main():
     regex   = module.params.get('regex')
     line    = module.params.get('line')
     
-    
-    if installif and not installif in ["lessthan", "lessthanequal", "equal", "notequal", "greaterthan", "greaterthanequal"]:
-        module.fail_json(msg=str(installif)+" is not a valid installif option")
     
     #Initialize the parameters to return all to False
     #Always assume the worst
