@@ -2,7 +2,7 @@ EXEC_CHECK
 ============
 
 ##INSTALLATION
-cd path/to/where/your/playbooks/are
+cd path/to/toplevel/directory/where/your/playbooks/are
 
 mkdir library
 
@@ -16,150 +16,132 @@ What if I want to just see if a module is installed?
 ```
 - name: test if python is installed
   version_check: command="python"
-  ignore_errors: yes
   register: installed
   
 - name: python install
   yum: name='python' state=installed
   sudo: yes
-  when: installed.installed != true
+  when: installed.install_required == true
 ```
 
-What if I want to make sure a minimum version is met
+What if I want to compare versions?
 ```
-- name: test if python is installed and minimum version is 3.0
-  version_check: command="python --version" minimum="3.0"
-  ignore_errors: yes
+  #Choose one option for installif
+  #installif can be one of ["lessthan", "lessthanequal", "equal", "notequal", "greaterthan", "greaterthanequal"]
+    # lessthan - sets install_required if found version is less than expected version
+    # lessthanequal - sets install_required if found version is less than or equal to expected version
+    # equal - sets install_required if found version is equal to the expected version
+    # notequal - sets install_required if found version is not equal to the expected version
+    # greaterthan - sets install_required if found version is greater than expected version
+    # greaterthanequal - sets install_required if found version is greater than or equal to expected version
+- name: test if python is installed and do an install if the version is less than 3.0
+  version_check: command="python --version" version=3.0 installif="lessthan"
   register: installed
   
 - name: python install
-  yum: name='python' state=installed version="3.0"
+  yum: name='python' state=installed version="3.1"
   sudo: yes
-  when: installed.minVer != true
+  when: installed.install_required == true
 ```
 
 
-What if I want to make sure a maximum version is met
+What if I want to use a custom regex to parse the output from command
 ```
-- name: test if python is installed and minimum version is 2.9
-  version_check: command="python --version" maximum="2.9"
-  ignore_errors: yes
+- name: test if python is installed and use a custom regex to parse the version info
+  version_check: command="python --version" regex="\d\.\d\.\d" 
   register: installed
   
-- name: python install
-  yum: name='python' state=installed version="2.7"
+- name: do something if python version is 2.7
+  shell: ls -la
   sudo: yes
-  when: installed.maxVer != true
+  when: installed.version == 2.7
 ```
 
 
-What if I want to make sure a maximum and minimum version is met
+What if my regex matches the version string, but its the second match? (This is not a normal use case, tread lightly using this option).
+Refer to the documentation at the top of version_check for more info.
 ```
 - name: test if python is installed and version is between 2.7 and 2.9
-  version_check: command="python --version" maximum="2.9" minimum="2.7"
-  ignore_errors: yes
+  version_check: command="python --version" regex="\d\.\d\.\d\." line=0
   register: installed
   
 - name: python install
-  yum: name='python' state=installed version="2.7"
+  yum: name='python' state=installed 
   sudo: yes
-  when: installed.maxVer != true and installed.minVer != true
-```
-
-What if I want to use a custom regex to parse the version
-```
-- name: test if python is installed and use a custom regex
-  version_check: command="python --version" regex="\d.\d.\d.\d"
-  ignore_errors: yes
-  register: installed
-  
-- name: python install
-  yum: name='python' state=installed version="2.7"
-  sudo: yes
-  when: installed.installed != true
-```
-
-What if I just want to compare the version as a string
-```
-- name: test if python is installed and make sure version is exactly 2.7.9
-  version_check: command="python --version"
-  ignore_errors: yes
-  register: installed
-  
-- name: python install
-  yum: name='python' state=installed version="2.7.9"
-  sudo: yes
-  when: installed.version != "2.7.9"
+  when: installed.version="2.7.5"
 ```
 
 
 ##USE
 Example playbook:
-```- name: Test version_check, simple case
+```
+- name: Test version_check, simple case
   version_check: command="python --version"
   register: version
 
 - name: debug version variable from the test
   debug: var=version
 
-- name: Test version_check, check minimum version
-  version_check: command="python --version" minimum="1.8"
-  register: version
-
-- name: debug version variable from the test
-  debug: var=version
-
-- name: Test version_check, check maximum version
-  version_check: command="python --version" maximum="2.9"
-  register: version
-
-- name: debug version variable from the test
-  debug: var=version
-
-- name: Test version_check, check minimum and maximum version
-  version_check: command="python --version" minimum="1.8" maximum="2.9"
-  register: version
-
-- name: debug version variable from the test
-  debug: var=version  
-
-- name: Test version_check, minimum version should fail
-  version_check: command="python --version" minimum="9.0.1"
-  ignore_errors: yes
-  register: version
-
-- name: debug version variable from the test
-  debug: var=version
-
-- name: Test version_check, maximum version should fail
-  version_check: command="python --version" maximum="1.0"
-  ignore_errors: yes
-  register: version
-
-- name: debug version variable from the test
-  debug: var=version
-
-- name: Test version_check, minimum version should fail but check for bth
-  version_check: command="python --version" minimum="9.0.1" maximum="9.0"
-  ignore_errors: yes
-  register: version
-
-- name: debug version variable from the test
-  debug: var=version
-
-- name: Test version_check, maximum should fail but check for both
-  version_check: command="python --version" minimum="1.1" maximum="1.0"
-  ignore_errors: yes
+- name: Test version_check, check if version is less
+  version_check: command="python --version" installif="lessthan" version=2.7
   register: version
 
 - name: debug version variable from the test
   debug: var=version
   
-- name: test bogus program should cause failure
-  version_check: command="goobleygoop"
-  ignore_errors: yes
+- name: Test version_check, check if version is less than or equal to
+  version_check: command="python --version" installif="lessthanequal" version=2.7
   register: version
+
+- name: debug version variable from the test
+  debug: var=version
+
+- name: Test version_check, check if version is greater than
+  version_check: command="python --version" installif="greaterthan" version=2.7
+  register: version
+
+- name: debug version variable from the test
+  debug: var=version
   
+- name: Test version_check, check if version is greater than or equal to
+  version_check: command="python --version" installif="greaterthanequal" version=2.7
+  register: version
+
+- name: debug version variable from the test
+  debug: var=version
+
+- name: Test version_check, check if version is equal to 2.7
+  version_check: command="python --version" installif="equal" version=2.7
+  register: version
+
+- name: debug version variable from the test
+  debug: var=version
+  
+- name: Test version_check, check if version is not equal to 2.7
+  version_check: command="python --version" installif="notequal" version=2.7
+  register: version
+
+- name: debug version variable from the test
+  debug: var=version
+
+- name: Test version_check, check if version is less than, uses a custom regex
+  version_check: command="python --version" installif="lessthan" version=2.7 regex="\d\.+"
+  register: version
+
+- name: debug version variable from the test
+  debug: var=version
+  
+- name: Test version_check, check if version is less, use custom regex and custom line
+  version_check: command="python --version" installif="lessthan" version=2.7 regex="\d\.+" line=1
+  register: version
+
+- name: debug version variable from the test
+  debug: var=version
+
+- name: Test version_check, check if non-existant command needs to be installed (it does)
+  version_check: command="notarealcommand --version" 
+  register: version
+
 - name: debug version variable from the test
   debug: var=version
 ```
@@ -169,18 +151,19 @@ Output from this file:
 rcduar@ApplePoptarts:DemandCubePlaybooks $ ansible-playbook -i ./inventory/localhost test_version_check.yml
  
 PLAY [localhost] **************************************************************
- 
+
 GATHERING FACTS ***************************************************************
 ok: [localhost]
- 
+
 TASK: [test_version_check | Test version_check, simple case] ******************
-ok: [localhost]
- 
+changed: [localhost]
+
 TASK: [test_version_check | debug version variable from the test] *************
 ok: [localhost] => {
     "item": "",
     "version": {
-        "changed": false,
+        "changed": true,
+        "install_required": false,
         "installed": true,
         "invocation": {
             "module_args": "command=\"python --version\"",
@@ -188,250 +171,213 @@ ok: [localhost] => {
         },
         "item": "",
         "stderr": "Python 2.7.5\n",
-        "stdout": "Python 2.7.5\n",
-        "stdout_lines": [
-            "Python 2.7.5"
-        ],
+        "stdout": "",
+        "stdout_lines": [],
         "version": "2.7.5"
     }
 }
- 
-TASK: [test_version_check | Test version_check, check minimum version] ********
-ok: [localhost]
- 
+
+TASK: [test_version_check | Test version_check, check if version is less] *****
+changed: [localhost]
+
 TASK: [test_version_check | debug version variable from the test] *************
 ok: [localhost] => {
     "item": "",
     "version": {
-        "changed": false,
+        "changed": true,
+        "install_required": false,
         "installed": true,
         "invocation": {
-            "module_args": "command=\"python --version\" minimum=\"1.8\"",
+            "module_args": "command=\"python --version\" installif=\"lessthan\" version=2.7",
             "module_name": "version_check"
         },
         "item": "",
-        "minVer": true,
         "stderr": "Python 2.7.5\n",
-        "stdout": "Python 2.7.5\n",
-        "stdout_lines": [
-            "Python 2.7.5"
-        ],
+        "stdout": "",
+        "stdout_lines": [],
         "version": "2.7.5"
     }
 }
- 
-TASK: [test_version_check | Test version_check, check maximum version] ********
-ok: [localhost]
- 
+
+TASK: [test_version_check | Test version_check, check if version is less than or equal to] ***
+changed: [localhost]
+
 TASK: [test_version_check | debug version variable from the test] *************
 ok: [localhost] => {
     "item": "",
     "version": {
-        "changed": false,
+        "changed": true,
+        "install_required": false,
         "installed": true,
         "invocation": {
-            "module_args": "command=\"python --version\" maximum=\"2.9\"",
+            "module_args": "command=\"python --version\" installif=\"lessthanequal\" version=2.7",
             "module_name": "version_check"
         },
         "item": "",
-        "maxVer": true,
         "stderr": "Python 2.7.5\n",
-        "stdout": "Python 2.7.5\n",
-        "stdout_lines": [
-            "Python 2.7.5"
-        ],
+        "stdout": "",
+        "stdout_lines": [],
         "version": "2.7.5"
     }
 }
- 
-TASK: [test_version_check | Test version_check, check minimum and maximum version] ***
-ok: [localhost]
- 
+
+TASK: [test_version_check | Test version_check, check if version is greater than] ***
+changed: [localhost]
+
 TASK: [test_version_check | debug version variable from the test] *************
 ok: [localhost] => {
     "item": "",
     "version": {
-        "changed": false,
+        "changed": true,
+        "install_required": true,
         "installed": true,
         "invocation": {
-            "module_args": "command=\"python --version\" minimum=\"1.8\" maximum=\"2.9\"",
+            "module_args": "command=\"python --version\" installif=\"greaterthan\" version=2.7",
             "module_name": "version_check"
         },
         "item": "",
-        "maxVer": true,
-        "minVer": true,
         "stderr": "Python 2.7.5\n",
-        "stdout": "Python 2.7.5\n",
-        "stdout_lines": [
-            "Python 2.7.5"
-        ],
+        "stdout": "",
+        "stdout_lines": [],
         "version": "2.7.5"
     }
 }
- 
-TASK: [test_version_check | Test version_check, minimum version should fail] ***
-failed: [localhost] => {"changed": false, "failed": true, "installed": true, "item": "", "minVer": false, "version": "2.7.5"}
-stderr: Python 2.7.5
- 
-stdout: Python 2.7.5
- 
-msg: Version was insufficient.
-Version: 2.7.5
-Required version >=9.0.1
-...ignoring
- 
+
+TASK: [test_version_check | Test version_check, check if version is greater than or equal to] ***
+changed: [localhost]
+
 TASK: [test_version_check | debug version variable from the test] *************
 ok: [localhost] => {
     "item": "",
     "version": {
-        "changed": false,
-        "failed": true,
+        "changed": true,
+        "install_required": true,
         "installed": true,
         "invocation": {
-            "module_args": "command=\"python --version\" minimum=\"9.0.1\"",
+            "module_args": "command=\"python --version\" installif=\"greaterthanequal\" version=2.7",
             "module_name": "version_check"
         },
         "item": "",
-        "minVer": false,
-        "msg": "Version was insufficient.\nVersion: 2.7.5\nRequired version >=9.0.1",
         "stderr": "Python 2.7.5\n",
-        "stdout": "Python 2.7.5\n",
-        "stdout_lines": [
-            "Python 2.7.5"
-        ],
+        "stdout": "",
+        "stdout_lines": [],
         "version": "2.7.5"
     }
 }
- 
-TASK: [test_version_check | Test version_check, maximum version should fail] ***
-failed: [localhost] => {"changed": false, "failed": true, "installed": true, "item": "", "maxVer": false, "version": "2.7.5"}
-stderr: Python 2.7.5
- 
-stdout: Python 2.7.5
- 
-msg: Version was insufficient.
-Version: 2.7.5
-Required version <= 1.0
-...ignoring
- 
+
+TASK: [test_version_check | Test version_check, check if version is equal to 2.7] ***
+changed: [localhost]
+
 TASK: [test_version_check | debug version variable from the test] *************
 ok: [localhost] => {
     "item": "",
     "version": {
-        "changed": false,
-        "failed": true,
+        "changed": true,
+        "install_required": false,
         "installed": true,
         "invocation": {
-            "module_args": "command=\"python --version\" maximum=\"1.0\"",
+            "module_args": "command=\"python --version\" installif=\"equal\" version=2.7",
             "module_name": "version_check"
         },
         "item": "",
-        "maxVer": false,
-        "msg": "Version was insufficient.\nVersion: 2.7.5\nRequired version <= 1.0",
         "stderr": "Python 2.7.5\n",
-        "stdout": "Python 2.7.5\n",
-        "stdout_lines": [
-            "Python 2.7.5"
-        ],
+        "stdout": "",
+        "stdout_lines": [],
         "version": "2.7.5"
     }
 }
- 
-TASK: [test_version_check | Test version_check, minimum version should fail but check for bth] ***
-failed: [localhost] => {"changed": false, "failed": true, "installed": true, "item": "", "maxVer": true, "minVer": true, "version": "2.7.5"}
-stderr: Python 2.7.5
- 
-stdout: Python 2.7.5
- 
-msg: Version was insufficient.
-Version: 2.7.5
-Required version >=9.0.1 and <= 9.0
-...ignoring
- 
+
+TASK: [test_version_check | Test version_check, check if version is not equal to 2.7] ***
+changed: [localhost]
+
 TASK: [test_version_check | debug version variable from the test] *************
 ok: [localhost] => {
     "item": "",
     "version": {
-        "changed": false,
-        "failed": true,
+        "changed": true,
+        "install_required": true,
         "installed": true,
         "invocation": {
-            "module_args": "command=\"python --version\" minimum=\"9.0.1\" maximum=\"9.0\"",
+            "module_args": "command=\"python --version\" installif=\"notequal\" version=2.7",
             "module_name": "version_check"
         },
         "item": "",
-        "maxVer": true,
-        "minVer": true,
-        "msg": "Version was insufficient.\nVersion: 2.7.5\nRequired version >=9.0.1 and <= 9.0",
         "stderr": "Python 2.7.5\n",
-        "stdout": "Python 2.7.5\n",
-        "stdout_lines": [
-            "Python 2.7.5"
-        ],
+        "stdout": "",
+        "stdout_lines": [],
         "version": "2.7.5"
     }
 }
- 
-TASK: [test_version_check | Test version_check, maximum should fail but check for both] ***
-failed: [localhost] => {"changed": false, "failed": true, "installed": true, "item": "", "maxVer": true, "minVer": true, "version": "2.7.5"}
-stderr: Python 2.7.5
- 
-stdout: Python 2.7.5
- 
-msg: Version was insufficient.
-Version: 2.7.5
-Required version >=1.1 and <= 1.0
-...ignoring
- 
+
+TASK: [test_version_check | Test version_check, check if version is less than, uses a custom regex] ***
+changed: [localhost]
+
 TASK: [test_version_check | debug version variable from the test] *************
 ok: [localhost] => {
     "item": "",
     "version": {
-        "changed": false,
-        "failed": true,
+        "changed": true,
+        "install_required": true,
         "installed": true,
         "invocation": {
-            "module_args": "command=\"python --version\" minimum=\"1.1\" maximum=\"1.0\"",
+            "module_args": "command=\"python --version\" installif=\"lessthan\" version=2.7 regex=\"\\d\\.+\"",
             "module_name": "version_check"
         },
         "item": "",
-        "maxVer": true,
-        "minVer": true,
-        "msg": "Version was insufficient.\nVersion: 2.7.5\nRequired version >=1.1 and <= 1.0",
         "stderr": "Python 2.7.5\n",
-        "stdout": "Python 2.7.5\n",
-        "stdout_lines": [
-            "Python 2.7.5"
-        ],
-        "version": "2.7.5"
+        "stdout": "",
+        "stdout_lines": [],
+        "version": "2."
     }
 }
- 
-TASK: [test_version_check | test bogus program should cause failure] **********
-failed: [localhost] => {"changed": false, "failed": true, "installed": false, "item": "", "maxVer": false, "minVer": false}
-msg: Error running version command : goobleygoop
-...ignoring
- 
+
+TASK: [test_version_check | Test version_check, check if version is less, use custom regex and custom line] ***
+changed: [localhost]
+
 TASK: [test_version_check | debug version variable from the test] *************
 ok: [localhost] => {
     "item": "",
     "version": {
-        "changed": false,
-        "failed": true,
+        "changed": true,
+        "install_required": true,
+        "installed": true,
+        "invocation": {
+            "module_args": "command=\"python --version\" installif=\"lessthan\" version=2.7 regex=\"\\d\\.+\" line=1",
+            "module_name": "version_check"
+        },
+        "item": "",
+        "stderr": "Python 2.7.5\n",
+        "stdout": "",
+        "stdout_lines": [],
+        "version": false
+    }
+}
+
+TASK: [test_version_check | Test version_check, check if non-existant command needs to be installed (it does)] ***
+changed: [localhost]
+
+TASK: [test_version_check | debug version variable from the test] *************
+ok: [localhost] => {
+    "item": "",
+    "version": {
+        "changed": true,
+        "install_required": true,
         "installed": false,
         "invocation": {
-            "module_args": "command=\"goobleygoop\"",
+            "module_args": "command=\"notarealcommand --version\"",
             "module_name": "version_check"
         },
         "item": "",
-        "maxVer": false,
-        "minVer": false,
-        "msg": "Error running version command : goobleygoop"
+        "stderr": "",
+        "stdout": "",
+        "stdout_lines": [],
+        "version": false
     }
 }
- 
+
 PLAY RECAP ********************************************************************
-localhost                  : ok=19   changed=0    unreachable=0    failed=0
+localhost                  : ok=21   changed=10   unreachable=0    failed=0
+
 ```
 
 
