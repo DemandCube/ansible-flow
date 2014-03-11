@@ -10,6 +10,9 @@ cd library
 
 git clone https://github.com/DemandCube/ansible-flow.git
 
+mv ./ansible-flow/* ./
+
+
 
 ##Use cases
 What if I want to just see if a module is installed?
