@@ -1,0 +1,216 @@
+#!/usr/bin/python
+
+DOCUMENTATION = '''
+---
+module: exec_check
+author: Steve Morin & Richard Duarte
+version_added: "1.4"
+short_description: Checks if version information is correct
+requirements: [ ]
+description:
+     - Runs command specified, and looks for regex "(\d+\.)+\d+" and determines if it meets minimum version requirements
+options:
+  command:
+    description:
+        - The command to run in order to extract the version
+    required: true
+    default: null
+  installif:
+    description:
+        - Must choose from list of valid options
+        - Must be used in conjunction with "version" option
+        - lessthan - sets install_required if found version is less than expected version
+        - lessthanequal - sets install_required if found version is less than or equal to expected version
+        - equal - sets install_required if found version is equal to the expected version
+        - notequal - sets install_required if found version is not equal to the expected version
+        - greaterthan - sets install_required if found version is greater than expected version
+        - greaterthanequal - sets install_required if found version is greater than or equal to expected version
+    choices: ["lessthan", "lessthanequal", "equal", "notequal", "greaterthan", "greaterthanequal"]
+    required: no
+  version:
+    description:
+        - The expected version
+        - Must be supplied if using the installif option
+    required: no
+  regex:
+    description:
+        - The regex used to extract version string from the output of command
+    required: no
+    default: (\d+\.)+\d+
+  line:
+    description:
+        - The matched group the regex will match.  default is 0 (don't mess with this if you don't know what you're doing)
+        - Version info is extracted with this line of python:
+        - version_result = search(regex,versionOutCombined).group(int(line))
+        - For example: If you know your regex is going to match command's output more than once, and the version information will be in the second match, set this to 1 
+    required: no
+    default: 0
+notes:
+    -  Module should make things easier to check file versions
+'''
+
+EXAMPLES = '''
+#This is your possible playbook:
+
+- name: Test version_check, simple case
+  version_check: command="python --version"
+  register: version
+
+- name: Test version_check, check if version is less
+  version_check: command="python --version" installif="lessthan" version=2.7
+  register: version
+  
+- name: Test version_check, check if version is less than or equal to
+  version_check: command="python --version" installif="lessthanequal" version=2.7
+  register: version
+
+- name: Test version_check, check if version is greater than
+  version_check: command="python --version" installif="greaterthan" version=2.7
+  register: version
+  
+- name: Test version_check, check if version is greater than or equal to
+  version_check: command="python --version" installif="greaterthanequal" version=2.7
+  register: version
+
+- name: Test version_check, check if version is equal to 2.7
+  version_check: command="python --version" installif="equal" version=2.7
+  register: version
+
+- name: Test version_check, check if version is not equal to 2.7
+  version_check: command="python --version" installif="notequal" version=2.7
+  register: version
+
+- name: Test version_check, check if version is less than, uses a custom regex
+  version_check: command="python --version" installif="lessthan" version=2.7 regex="\d\.+"
+  register: version
+
+- name: Test version_check, check if version is less, use custom regex and custom line
+  version_check: command="python --version" installif="lessthan" version=2.7 regex="\d\.+" line=1
+  register: version
+
+- name: Test version_check, check if non-existant command needs to be installed. Will set install_required to true
+  version_check: command="notarealcommand --version" 
+  register: version
+
+
+# Now you can use
+- name: install python
+  yum: name=python state="installed"
+  when: version.install_required == true
+# or
+- name: install python
+  include: program/python.yml
+  when: version.install_required == true
+# or
+- name: do something if version is correct
+  shell: do stuff
+  when: version.version == 2.7
+
+'''
+
+
+
+from ansible.module_utils.basic import *
+from re import search
+import subprocess
+from distutils.version import LooseVersion, StrictVersion
+
+def main():
+    module = AnsibleModule(
+        argument_spec = dict(
+            command = dict(required=True, type='str'),
+            installif = dict(required=False, default=None, type='str', choices=["lessthan", "lessthanequal", "equal", "notequal", "greaterthan", "greaterthanequal"]),
+            version  = dict(required=False, default=None, type='str'),
+            regex   = dict(required=False, default=r'(\d+\.)+\d+', type='str'),
+            line    = dict(required=False, default=0, type='int')
+        ),
+        supports_check_mode = True
+    )
+    
+    if module.check_mode:
+        if command:
+            # Check if any changes would be made by don't actually make those changes
+            module.exit_json(changed=true)
+        else:
+            #This should actually never happen since command is required
+            module.exit_json(changed=false)
+        
+    command = module.params.get('command')
+    installif = module.params.get('installif')
+    expectedVersion = module.params.get('version')
+    regex   = module.params.get('regex')
+    line    = module.params.get('line')
+    
+    
+    #Initialize the parameters to return all to False
+    #Always assume the worst
+    changed_result=False
+    installed_result=False
+    stdout_result=False
+    stderr_result=False
+    version_result=False
+    install_required_result=False
+    
+    versionOutCombined=""
+    versionOut=""
+    versionError=""
+    stdout_result=""
+    stderr_result=""
+    #Run the supplied command, extract STDOUT/STDERR
+    try:
+        #Command has been run, set changed to True
+        changed_result=True
+        
+        p = subprocess.Popen(command.split(), stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        versionOut,versionError = p.communicate()
+        
+        #Set what stdout_result and stderr_result are
+        stdout_result=versionOut
+        stderr_result=versionError
+        
+        versionOutCombined = str(versionOut)+str(versionError)
+        
+        #If we've gotten this far without errors,
+        #then the command has run without errors
+        installed_result=True
+        
+        #Find the version number in the output
+        version_result = search(regex,versionOutCombined).group(int(line))
+    except Exception:
+        install_required_result=True
+    
+    
+    if not install_required_result and installed_result and version_result and expectedVersion:
+        if installif == "lessthan":
+            if LooseVersion(str(version_result)) < LooseVersion(expectedVersion):
+                install_required_result=True
+        elif installif == "lessthanequal":
+            if LooseVersion(str(version_result)) <= LooseVersion(expectedVersion):
+                install_required_result=True
+        elif installif == "equal":
+            if LooseVersion(str(version_result)) == LooseVersion(expectedVersion):
+                install_required_result=True
+        elif installif == "notequal":
+            if LooseVersion(str(version_result)) != LooseVersion(expectedVersion):
+                install_required_result=True
+        elif installif == "greaterthan":
+            if LooseVersion(str(version_result)) > LooseVersion(expectedVersion):
+                install_required_result=True
+        elif installif == "greaterthanequal":
+            if LooseVersion(str(version_result)) >= LooseVersion(expectedVersion):
+                install_required_result=True
+                
+    
+    
+    module.exit_json(
+        changed=changed_result,
+        installed=installed_result,
+        stdout=stdout_result,
+        stderr=stderr_result,
+        version=version_result,
+        install_required=install_required_result,
+    )
+        
+
+
+main()
