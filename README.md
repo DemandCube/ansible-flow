@@ -1,4 +1,4 @@
-EXEC_CHECK
+check_version
 ============
 
 ##INSTALLATION
