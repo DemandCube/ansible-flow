@@ -9,10 +9,10 @@ Ansible Modules
 ====
 
 
-**check_version**
+**version_check**
 ----
 
-check_version allows you to easily check to see if a program/binary exists and optionally to check what version it is to test if you should install, upgrade or replace the program using ansible.
+version_check allows you to easily check to see if a program/binary exists and optionally to check what version it is to test if you should install, upgrade or replace the program using ansible.
 
 INSTALLATION
 ----
@@ -24,7 +24,7 @@ cd library
 
 git clone https://github.com/DemandCube/ansible-flow.git
 
-mv ./ansible-flow/* ./
+mv ./ansible-flow/library/* ./
 
 
 
