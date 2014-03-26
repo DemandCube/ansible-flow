@@ -1,7 +1,21 @@
-EXEC_CHECK
-============
+ansible-flow
+====
 
-##INSTALLATION
+The repository contains custom ansible modules that make developing playbooks easier.
+
+- This is part of [NeverwinterDP the Data Pipeline for Hadoop](https://github.com/DemandCube/NeverwinterDP)
+
+Ansible Modules
+====
+
+
+**check_version**
+----
+
+check_version allows you to easily check to see if a program/binary exists and optionally to check what version it is to test if you should install, upgrade or replace the program using ansible.
+
+INSTALLATION
+----
 cd path/to/toplevel/directory/where/your/playbooks/are
 
 mkdir library
@@ -14,7 +28,8 @@ mv ./ansible-flow/* ./
 
 
 
-##Use cases
+Use cases
+----
 What if I want to just see if a module is installed?
 ```
 - name: test if python is installed
